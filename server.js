@@ -47,25 +47,53 @@ app.post('/api/reservations', async (req, res) => {
     try {
         const { name, message, attendance } = req.body;
         
+        // Debug log
+        console.log('Received data:', req.body);
+        
         if (!name || !attendance) {
-            return res.status(400).json({ error: 'Name and attendance are required' });
+            console.log('Validation failed:', { name, attendance });
+            return res.status(400).json({ 
+                error: 'Name and attendance are required',
+                received: { name, attendance }
+            });
         }
 
+        // Store attendance as string value directly
         const newReservation = {
             name,
             message: message || '',
-            attendance,
+            attendance: attendance, // Remove Boolean conversion
             timestamp: new Date().toISOString()
         };
 
-        const data = await fs.readFile(dataPath, 'utf8');
-        const reservations = JSON.parse(data);
+        console.log('Saving reservation:', newReservation);
+
+        // Ensure data directory exists
+        await fs.mkdir(path.join(__dirname, 'data'), { recursive: true });
+
+        // Read existing data or create empty array if file doesn't exist
+        let reservations = [];
+        try {
+            const data = await fs.readFile(dataPath, 'utf8');
+            reservations = JSON.parse(data);
+        } catch (error) {
+            console.log('Creating new reservations file');
+        }
+
+        // Add new reservation
         reservations.push(newReservation);
         
-        await fs.writeFile(dataPath, JSON.stringify(reservations, null, 2));
+        // Write back to file with pretty formatting
+        await fs.writeFile(dataPath, JSON.stringify(reservations, null, 2), 'utf8');
+        
         res.status(201).json(newReservation);
     } catch (error) {
-        res.status(500).json({ error: 'Error saving reservation' });
+        console.error('Server error details:', error);
+        res.status(500).json({ 
+            error: 'Error saving reservation',
+            details: error.message,
+            stack: error.stack
+        });
     }
 });
 
